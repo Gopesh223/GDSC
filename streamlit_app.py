@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-import pyttsx3
+#import pyttsx3
 import faiss
 import pickle
 from langchain_community.document_loaders import PDFPlumberLoader
@@ -71,9 +71,9 @@ def run_query(question):
         related_documents = retrieve_docs(question)
         answer = answer_question(question, related_documents)
         st.chat_message("assistant").write(answer)
-        engine=pyttsx3.init()
-        engine.say(answer)
-        engine.runAndWait()
+        #engine=pyttsx3.init()
+        #engine.say(answer)
+        #engine.runAndWait()
 
 if st.button("Use Speech Input"):
     if state.text_received:
