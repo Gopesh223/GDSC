@@ -1,8 +1,8 @@
 import streamlit as st
 import os
 #import pyttsx3
-import faiss
-import pickle
+#import faiss
+#import pickle
 from langchain_community.document_loaders import PDFPlumberLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
