@@ -1,10 +1,9 @@
 streamlit
-langchain
-langchain_community
-langchain_text_splitters
-langchain_ollama
-streamlit_mic_recorder
-pdfplumber
-pyttsx3
+langchain-community
+langchain-text-splitters
+langchain-core
+langchain-ollama
 faiss-cpu
-pickle-mixin
+streamlit-mic-recorder
+gtts
+pdfplumber
