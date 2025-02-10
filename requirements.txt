@@ -1,9 +1,0 @@
-streamlit
-langchain-community
-langchain-text-splitters
-langchain-core
-langchain-ollama
-faiss-cpu
-streamlit-mic-recorder
-gtts
-pdfplumber
