@@ -1,0 +1,112 @@
+import streamlit as st
+import os
+import pyttsx3
+import faiss
+from langchain_community.document_loaders import PDFPlumberLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_ollama import OllamaEmbeddings
+from langchain_ollama.llms import OllamaLLM
+from langchain_core.prompts import ChatPromptTemplate
+from streamlit_mic_recorder import speech_to_text
+from duckduckgo_search import DDGS
+
+# --- Setup Paths ---
+pdf_path = "hp.pdf"
+vectorstore_dir = "faiss_index"
+feedback_file = "feedback.json"
+
+# --- Load Embeddings & Model ---
+embeddings = OllamaEmbeddings(model='llama3.2')
+llm = OllamaLLM(model='llama3.2')
+
+os.makedirs(vectorstore_dir, exist_ok=True)
+
+# --- Load or Create FAISS Vector Store ---
+if os.path.exists(os.path.join(vectorstore_dir, "index.faiss")):
+    vector_store = FAISS.load_local(vectorstore_dir, embeddings, allow_dangerous_deserialization=True)
+else:
+    loader = PDFPlumberLoader(pdf_path)
+    documents = loader.load()
+
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    chunked_documents = text_splitter.split_documents(documents)
+
+    vector_store = FAISS.from_documents(chunked_documents, embeddings)
+    vector_store.save_local(vectorstore_dir)
+
+# --- Define Functions ---
+def retrieve_docs(query):
+    """Fetch relevant documents from FAISS."""
+    docs = vector_store.similarity_search(query)
+    return docs if docs else None
+
+def answer_question(question, documents):
+    """Generate a response using retrieved documents."""
+    if not documents:
+        return "I couldn't find relevant information in the PDF."
+
+    context = "\n\n".join([doc.page_content for doc in documents])
+    template = """
+    You are an intelligent assistant. Use the retrieved context to answer the question.
+    If uncertain, ask the user for clarification.
+    
+    Question: {question}
+    Context: {context}
+    
+    Answer:
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+    chain = prompt | llm
+    return chain.invoke({"question": question, "context": context})
+
+def search_web(query):
+    """Perform a web search using DuckDuckGo."""
+    with DDGS() as ddgs:
+        results = list(ddgs.text(query, max_results=1))
+    return results[0]["body"] if results else "No relevant web results found."
+
+def text_to_speech(response):
+    """Convert the assistant's response to speech."""
+    engine = pyttsx3.init()
+    engine.say(response)
+    engine.runAndWait()
+
+# --- Streamlit UI ---
+st.title("Agentic RAG Chatbot with Feedback System")
+
+state = st.session_state
+if 'text_received' not in state:
+    state.text_received = []
+
+c1, c2 = st.columns(2)
+with c1:
+    st.write("Convert speech to text:")
+with c2:
+    text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT')
+
+if text:
+    state.text_received.append(text)
+
+def run_agentic_query(question):
+    st.chat_message("user").write(question)
+
+    # Step 1: Search FAISS first
+    related_documents = retrieve_docs(question)
+    if related_documents:
+        answer = answer_question(question, related_documents)
+    else:
+        st.write("No relevant content in FAISS. Searching the web...")
+        answer = search_web(question)
+
+    # Display answer
+    st.chat_message("assistant").write(answer)
+    text_to_speech(answer)
+
+if st.button("Use Speech Input"):
+    if state.text_received:
+        run_agentic_query(state.text_received[-1])
+
+question = st.chat_input("Ask your question")
+if question:
+    run_agentic_query(question)
