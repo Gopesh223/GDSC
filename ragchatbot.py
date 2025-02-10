@@ -11,18 +11,14 @@ from langchain_core.prompts import ChatPromptTemplate
 from streamlit_mic_recorder import speech_to_text
 from duckduckgo_search import DDGS
 
-# --- Setup Paths ---
 pdf_path = "hp.pdf"
 vectorstore_dir = "faiss_index"
-feedback_file = "feedback.json"
 
-# --- Load Embeddings & Model ---
 embeddings = OllamaEmbeddings(model='llama3.2')
 llm = OllamaLLM(model='llama3.2')
 
 os.makedirs(vectorstore_dir, exist_ok=True)
 
-# --- Load or Create FAISS Vector Store ---
 if os.path.exists(os.path.join(vectorstore_dir, "index.faiss")):
     vector_store = FAISS.load_local(vectorstore_dir, embeddings, allow_dangerous_deserialization=True)
 else:
@@ -35,9 +31,7 @@ else:
     vector_store = FAISS.from_documents(chunked_documents, embeddings)
     vector_store.save_local(vectorstore_dir)
 
-# --- Define Functions ---
 def retrieve_docs(query):
-    """Fetch relevant documents from FAISS."""
     docs = vector_store.similarity_search(query)
     return docs if docs else None
 
@@ -61,19 +55,16 @@ def answer_question(question, documents):
     return chain.invoke({"question": question, "context": context})
 
 def search_web(query):
-    """Perform a web search using DuckDuckGo."""
     with DDGS() as ddgs:
         results = list(ddgs.text(query, max_results=1))
     return results[0]["body"] if results else "No relevant web results found."
 
 def text_to_speech(response):
-    """Convert the assistant's response to speech."""
     engine = pyttsx3.init()
     engine.say(response)
     engine.runAndWait()
 
-# --- Streamlit UI ---
-st.title("Agentic RAG Chatbot with Feedback System")
+st.title("The Sorcerer's Stone Chatbot")
 
 state = st.session_state
 if 'text_received' not in state:
@@ -91,7 +82,6 @@ if text:
 def run_agentic_query(question):
     st.chat_message("user").write(question)
 
-    # Step 1: Search FAISS first
     related_documents = retrieve_docs(question)
     if related_documents:
         answer = answer_question(question, related_documents)
@@ -99,7 +89,6 @@ def run_agentic_query(question):
         st.write("No relevant content in FAISS. Searching the web...")
         answer = search_web(question)
 
-    # Display answer
     st.chat_message("assistant").write(answer)
     text_to_speech(answer)
 
