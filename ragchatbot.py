@@ -2,12 +2,13 @@ import streamlit as st
 import os
 import pyttsx3
 import faiss
+from langchain.agents import initialize_agent, AgentType
+from langchain.memory import ConversationBufferMemory
 from langchain_community.document_loaders import PDFPlumberLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_ollama import OllamaEmbeddings
-from langchain_ollama.llms import OllamaLLM
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import OllamaEmbeddings, OllamaLLM
+from langchain.tools import Tool
 from streamlit_mic_recorder import speech_to_text
 from duckduckgo_search import DDGS
 
@@ -36,7 +37,6 @@ def retrieve_docs(query):
     return docs if docs else None
 
 def answer_question(question, documents):
-    """Generate a response using retrieved documents."""
     if not documents:
         return "I couldn't find relevant information in the PDF."
 
@@ -50,9 +50,7 @@ def answer_question(question, documents):
     
     Answer:
     """
-    prompt = ChatPromptTemplate.from_template(template)
-    chain = prompt | llm
-    return chain.invoke({"question": question, "context": context})
+    return llm.invoke(template.format(question=question, context=context))
 
 def search_web(query):
     with DDGS() as ddgs:
@@ -64,7 +62,22 @@ def text_to_speech(response):
     engine.say(response)
     engine.runAndWait()
 
-st.title("The Sorcerer's Stone Chatbot")
+tools = [
+    Tool(name="FAISS Search", func=retrieve_docs, description="Retrieves documents from FAISS."),
+    Tool(name="Web Search", func=search_web, description="Fetches search results from DuckDuckGo."),
+]
+
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+agent = initialize_agent(
+    tools=tools,
+    llm=llm,
+    agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
+    verbose=True,
+    memory=memory,
+)
+
+st.title("Sorcerer's Stone Chatbot")
 
 state = st.session_state
 if 'text_received' not in state:
